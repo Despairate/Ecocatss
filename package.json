@@ -1,0 +1,10 @@
+{
+  "name": "ecocatch-api",
+  "version": "1.0.0",
+  "description": "Eco-Catch live sync API",
+  "private": true,
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0"
+  }
+}

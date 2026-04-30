@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Eco-Catch · Live Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#060d14;--panel:#0a1628;--panel2:#0d1f3c;
+  --accent:#00e5ff;--accent2:#00ff88;--warn:#ff6b35;--danger:#ff2d55;
+  --text:#e0f4ff;--muted:#4a7fa5;--border:#1a3a5c;
+  --grid:rgba(0,229,255,0.04);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,var(--grid) 0,var(--grid) 1px,transparent 1px,transparent 40px),
+             repeating-linear-gradient(90deg,var(--grid) 0,var(--grid) 1px,transparent 1px,transparent 40px);
+  pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{flex-shrink:0;background:rgba(6,13,20,0.97);border-bottom:1px solid var(--border);
+  padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:50;backdrop-filter:blur(12px)}
+.logo{font-family:'Share Tech Mono',monospace;font-size:17px;color:var(--accent);letter-spacing:3px}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:1px}
+.topbar-center{display:flex;align-items:center;gap:20px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+
+/* serial status pill */
+.serial-pill{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;
+  border:1px solid var(--border);font-size:10px;letter-spacing:1px;cursor:pointer;
+  transition:all .2s;background:rgba(10,22,40,.6);color:var(--muted)}
+.serial-pill:hover{border-color:var(--accent);color:var(--accent)}
+.serial-pill.connected{border-color:var(--accent2);color:var(--accent2);background:rgba(0,255,136,.06);cursor:default}
+.serial-pill.connected:hover{border-color:var(--accent2);color:var(--accent2)}
+.serial-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.serial-dot.pulse{animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.clock-txt{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)}
+.admin-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 14px;
+  border-radius:6px;cursor:pointer;font-family:'Exo 2',sans-serif;font-size:10px;letter-spacing:2px;transition:all .2s}
+.admin-btn:hover{border-color:var(--warn);color:var(--warn)}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 12px;
+  border-radius:6px;cursor:pointer;font-family:'Exo 2',sans-serif;font-size:10px;letter-spacing:1px;transition:all .2s}
+.logout-btn:hover{border-color:var(--danger);color:var(--danger)}
+.adm-badge{font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(255,107,53,.12);
+  color:var(--warn);border:1px solid rgba(255,107,53,.3);letter-spacing:2px}
+
+/* ── PAGES ── */
+#page-public,#page-admin{flex:1;overflow:hidden;display:none;position:relative;z-index:1}
+#page-public.active,#page-admin.active{display:flex;flex-direction:column}
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(6,13,20,.92);backdrop-filter:blur(4px)}
+.connect-box{background:var(--panel);border:1px solid var(--accent);border-radius:16px;
+  padding:40px 36px;width:360px;text-align:center;
+  box-shadow:0 0 60px rgba(0,229,255,.12),inset 0 1px 0 rgba(255,255,255,.04)}
+.connect-icon{font-size:40px;margin-bottom:16px;display:block}
+.connect-title{font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--accent);letter-spacing:3px;margin-bottom:8px}
+.connect-sub{font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:24px}
+.connect-btn{width:100%;background:linear-gradient(135deg,rgba(0,229,255,.1),rgba(0,255,136,.08));
+  border:1px solid var(--accent);color:var(--accent);font-family:'Exo 2',sans-serif;
+  font-weight:700;font-size:12px;letter-spacing:3px;padding:13px;border-radius:8px;
+  cursor:pointer;transition:all .2s}
+.connect-btn:hover{background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(0,255,136,.15));
+  box-shadow:0 0 20px rgba(0,229,255,.2)}
+.connect-btn:disabled{opacity:.4;cursor:not-allowed}
+.connect-note{font-size:9px;color:var(--muted);margin-top:14px;letter-spacing:1px;line-height:1.6}
+.skip-link{font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;
+  margin-top:10px;font-family:'Exo 2',sans-serif;letter-spacing:1px;transition:color .2s}
+.skip-link:hover{color:var(--text)}
+.connect-err{font-size:11px;color:var(--danger);margin-top:10px;min-height:16px}
+
+/* ── LOGIN OVERLAY ── */
+#login-overlay{position:fixed;inset:0;z-index:110;display:none;align-items:center;justify-content:center;
+  background:rgba(6,13,20,.96);backdrop-filter:blur(6px)}
+#login-overlay.show{display:flex}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;
+  padding:40px 36px;width:340px;
+  box-shadow:0 0 50px rgba(0,229,255,.08)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-eco{font-family:'Share Tech Mono',monospace;font-size:20px;color:var(--accent);letter-spacing:4px}
+.login-sub{font-size:9px;color:var(--muted);letter-spacing:5px;margin-top:4px}
+.field-label{display:block;font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:5px;margin-top:16px}
+.field-input{width:100%;background:#0d1f3c;border:1px solid var(--border);border-radius:7px;
+  padding:11px 14px;color:var(--text);font-family:'Exo 2',sans-serif;font-size:13px;outline:none;transition:border-color .2s}
+.field-input:focus{border-color:var(--accent)}
+.login-submit{margin-top:22px;width:100%;background:linear-gradient(135deg,rgba(0,229,255,.1),rgba(0,255,136,.08));
+  border:1px solid var(--accent);color:var(--accent);font-family:'Exo 2',sans-serif;
+  font-weight:700;font-size:12px;letter-spacing:3px;padding:12px;border-radius:7px;cursor:pointer;transition:all .2s}
+.login-submit:hover{box-shadow:0 0 16px rgba(0,229,255,.2)}
+.login-err{color:var(--danger);font-size:11px;margin-top:8px;text-align:center;min-height:16px}
+.login-back{width:100%;background:none;border:none;color:var(--muted);font-size:10px;
+  letter-spacing:1px;cursor:pointer;margin-top:10px;font-family:'Exo 2',sans-serif;transition:color .2s}
+.login-back:hover{color:var(--text)}
+.login-hint{font-size:9px;color:var(--border);text-align:center;margin-top:10px;letter-spacing:1px}
+
+/* ── CARD ── */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.4}
+.card-title{font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;
+  margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.card-title-l{display:flex;align-items:center;gap:8px}
+.card-title-l::before{content:'';width:12px;height:1px;background:var(--accent)}
+
+/* ── PUBLIC PAGE LAYOUT ── */
+.pub-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 16px 20px}
+.pub-scroll::-webkit-scrollbar{width:4px}
+.pub-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.hero-stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
+.hero-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.35}
+.hero-val{font-family:'Share Tech Mono',monospace;font-size:30px;line-height:1}
+.hero-lbl{font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:5px}
+.sys-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:10px;
+  font-size:9px;letter-spacing:2px;margin-top:7px}
+.sys-pill.on{background:rgba(0,255,136,.1);color:var(--accent2);border:1px solid rgba(0,255,136,.25)}
+.sys-pill.off{background:rgba(74,127,165,.1);color:var(--muted);border:1px solid var(--border)}
+.sys-pill-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.sys-pill.on .sys-pill-dot{animation:blink 1.4s infinite}
+
+.main-row{display:grid;grid-template-columns:1fr 280px;gap:12px}
+.left-col{display:flex;flex-direction:column;gap:12px}
+.right-col{display:flex;flex-direction:column;gap:12px}
+
+/* ── GRAPH ── */
+.gbtn{background:none;border:1px solid var(--border);color:var(--muted);padding:2px 9px;
+  border-radius:4px;cursor:pointer;font-family:'Exo 2',sans-serif;font-size:8px;letter-spacing:1px;transition:all .2s}
+.gbtn.active,.gbtn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,.07)}
+
+/* ── CATCH LOG ── */
+.catch-list{display:flex;flex-direction:column;gap:4px;max-height:170px;overflow-y:auto}
+.catch-list::-webkit-scrollbar{width:3px}
+.catch-list::-webkit-scrollbar-thumb{background:var(--border)}
+.catch-item{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:7px;padding:7px 11px;animation:slidein .2s ease}
+@keyframes slidein{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+.catch-num{font-family:'Share Tech Mono',monospace;font-size:17px;color:var(--accent);min-width:30px}
+.catch-info .ct{font-size:11px;font-weight:600}
+.catch-info .ctm{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:1px}
+.catch-tag{font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(0,229,255,.1);
+  color:var(--accent);border:1px solid rgba(0,229,255,.2);letter-spacing:1px;white-space:nowrap}
+.empty-hint{font-size:10px;color:var(--muted);text-align:center;padding:16px 0;letter-spacing:1px}
+
+/* ── BIN ── */
+.bin-wrap{display:flex;flex-direction:column;align-items:center}
+.bin-body{width:58px;height:80px;border:2px solid var(--border);border-top:none;
+  border-radius:0 0 9px 9px;position:relative;overflow:hidden;background:#030810}
+.bin-fill-el{position:absolute;bottom:0;left:0;right:0;transition:height .7s ease;border-radius:0 0 7px 7px}
+.bin-pct-txt{font-family:'Share Tech Mono',monospace;font-size:22px;margin-top:5px;text-align:center}
+.bin-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-align:center}
+.bin-alert-el{font-size:9px;text-align:center;margin-top:7px;padding:4px 8px;border-radius:5px;letter-spacing:1px;width:100%}
+.bin-alert-el.ok{background:rgba(0,255,136,.07);color:var(--accent2);border:1px solid rgba(0,255,136,.25)}
+.bin-alert-el.mid{background:rgba(255,107,53,.1);color:var(--warn);border:1px solid var(--warn)}
+.bin-alert-el.full{background:rgba(255,45,85,.12);color:var(--danger);border:1px solid var(--danger)}
+
+/* ── BIN HISTORY ── */
+.bh-list{display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto}
+.bh-list::-webkit-scrollbar{width:3px}
+.bh-list::-webkit-scrollbar-thumb{background:var(--border)}
+.bh-item{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);
+  border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:10px}
+.bh-pct{font-family:'Share Tech Mono',monospace;color:var(--warn);font-size:12px}
+.bh-time{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted)}
+
+/* ── ADMIN LAYOUT ── */
+.adm-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 16px 20px}
+.adm-scroll::-webkit-scrollbar{width:4px}
+.adm-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.adm-grid{display:grid;grid-template-columns:220px 220px 1fr;grid-template-rows:auto auto auto;gap:12px}
+
+/* POWER BTN */
+.power-ring{width:80px;height:80px;border-radius:50%;border:3px solid var(--accent);
+  background:radial-gradient(circle,rgba(0,229,255,.1),transparent);
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  margin:0 auto 12px;transition:all .3s;position:relative}
+.power-ring::before{content:'';position:absolute;inset:-5px;border-radius:50%;
+  border:1px solid var(--accent);opacity:.25;animation:rpulse 2s infinite}
+@keyframes rpulse{0%,100%{transform:scale(1);opacity:.25}50%{transform:scale(1.04);opacity:.08}}
+.power-ring.off{border-color:var(--border);background:none}
+.power-ring.off::before{animation:none;opacity:0}
+.power-lbl{font-size:9px;letter-spacing:2px;margin-top:2px}
+.power-status{text-align:center;font-size:10px;letter-spacing:2px;margin-bottom:10px}
+.power-status.on{color:var(--accent2)}
+.power-status.off{color:var(--muted)}
+
+/* CONFIG SLIDERS */
+.cfg-label{font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:2px;margin-top:8px}
+.cfg-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.cfg-val{font-family:'Share Tech Mono',monospace;font-size:15px;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;height:3px}
+.cfg-hint{display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-bottom:6px}
+.send-btn{width:100%;margin-top:8px;background:linear-gradient(135deg,rgba(0,229,255,.08),rgba(0,255,136,.06));
+  border:1px solid var(--accent2);color:var(--accent2);font-family:'Exo 2',sans-serif;
+  font-weight:600;font-size:10px;letter-spacing:2px;padding:9px;border-radius:7px;cursor:pointer;transition:all .2s}
+.send-btn:hover{background:linear-gradient(135deg,rgba(0,229,255,.15),rgba(0,255,136,.12))}
+.send-ok{font-size:9px;color:var(--accent2);text-align:center;margin-top:4px;letter-spacing:1px;
+  opacity:0;transition:opacity .3s;min-height:14px}
+
+/* SCHED */
+.time-row{display:flex;align-items:center;justify-content:space-between;font-size:10px;margin-bottom:6px}
+.time-row span{color:var(--muted)}
+.time-row input[type=time]{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+  border-radius:5px;padding:3px 7px;font-family:'Exo 2',sans-serif;font-size:10px;outline:none}
+.time-row input[type=time]:focus{border-color:var(--accent)}
+
+/* SYSTEM LOG */
+.syslog-list{display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto}
+.syslog-list::-webkit-scrollbar{width:3px}
+.syslog-list::-webkit-scrollbar-thumb{background:var(--border)}
+.syslog-item{display:flex;align-items:flex-start;gap:7px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:6px;padding:5px 8px;font-size:10px}
+.syslog-icon{font-size:12px;min-width:16px;text-align:center;margin-top:1px}
+.syslog-msg{flex:1;color:var(--text);line-height:1.4}
+.syslog-time{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap;margin-top:1px}
+.syslog-tag{font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(0,229,255,.08);
+  color:var(--accent);border:1px solid rgba(0,229,255,.15);letter-spacing:1px;white-space:nowrap;align-self:flex-start}
+
+/* ADMIN GRAPH spanning */
+.adm-graph-card{grid-column:1/3}
+.adm-log-card{grid-row:1/4}
+.adm-stats-card{grid-column:1/3;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.mini-stat{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+.mini-stat .ms-val{font-family:'Share Tech Mono',monospace;font-size:24px;color:var(--accent2)}
+.mini-stat .ms-lbl{font-size:8px;color:var(--muted);letter-spacing:2px;margin-top:3px}
+
+/* LIVE badge */
+.live-badge{display:none;align-items:center;gap:5px;font-size:9px;color:var(--accent2);letter-spacing:1px}
+.live-badge.show{display:flex}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);
+  box-shadow:0 0 6px var(--accent2);animation:blink 1.2s infinite}
+
+@media(max-width:900px){
+  .main-row{grid-template-columns:1fr}
+  .right-col{flex-direction:row;flex-wrap:wrap}
+  .right-col .card{flex:1;min-width:200px}
+  .adm-grid{grid-template-columns:1fr 1fr}
+  .adm-graph-card,.adm-log-card,.adm-stats-card{grid-column:1/3;grid-row:auto}
+}
+@media(max-width:600px){
+  .hero-row{grid-template-columns:1fr 1fr}
+  .main-row{grid-template-columns:1fr}
+  .adm-grid{grid-template-columns:1fr}
+  .adm-graph-card,.adm-log-card,.adm-stats-card{grid-column:1}
+}
+</style>
+</head>
+<body>
+
+
+<!-- ══ LOGIN OVERLAY ══ -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div style="font-size:32px;margin-bottom:10px">🌿</div>
+      <div class="login-eco">ECO-CATCH</div>
+      <div class="login-sub">ADMIN ACCESS</div>
+    </div>
+    <label class="field-label">USERNAME</label>
+    <input class="field-input" type="text" id="uname" placeholder="admin" autocomplete="off"/>
+    <label class="field-label">PASSWORD</label>
+    <input class="field-input" type="password" id="upass" placeholder="••••••••"/>
+    <button class="login-submit" onclick="doLogin()">ACCESS SYSTEM</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-hint">admin / ecocatch123</div>
+    <button class="login-back" onclick="closeLogin()">← Back to public view</button>
+  </div>
+</div>
+
+<!-- ══ TOPBAR ══ -->
+<div class="topbar">
+  <div>
+    <div class="logo">🌿 ECO-CATCH</div>
+    <div class="logo-sub">DAM GARBAGE COLLECTION SYSTEM</div>
+  </div>
+  <div class="topbar-center">
+    <div id="live-badge" class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+  <div class="topbar-right">
+    <div class="serial-pill" id="serial-pill" onclick="reconnectBT()">
+      <div class="serial-dot pulse" id="serial-dot"></div>
+      <span id="serial-txt">SYNCING...</span>
+    </div>
+    <span class="clock-txt" id="clock"></span>
+    <button class="admin-btn" id="admin-btn" onclick="openLogin()">⚙ ADMIN</button>
+    <button class="logout-btn" id="logout-btn" style="display:none" onclick="doLogout()">LOGOUT</button>
+    <span class="adm-badge" id="adm-badge" style="display:none">ADMIN</span>
+  </div>
+</div>
+
+<!-- ══ PUBLIC PAGE ══ -->
+<div id="page-public" class="active">
+  <div class="pub-scroll">
+
+    <!-- HERO STATS -->
+    <div class="hero-row">
+      <div class="hero-stat">
+        <div class="hero-val" id="pub-today" style="color:var(--accent2)">0</div>
+        <div class="hero-lbl">COLLECTED TODAY</div>
+        <div class="sys-pill on" id="pub-sys-pill">
+          <div class="sys-pill-dot"></div>SYSTEM ACTIVE
+        </div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-val" id="pub-total" style="color:var(--accent)">0</div>
+        <div class="hero-lbl">TOTAL ALL TIME</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:7px">CUMULATIVE CATCHES</div>
+      </div>
+      <div class="hero-stat">
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <div>
+            <div class="hero-val" id="pub-bin-hero" style="color:var(--accent2)">—%</div>
+            <div class="hero-lbl">BIN LEVEL</div>
+          </div>
+          <div style="flex:0 0 44px">
+            <div class="bin-body" style="width:44px;height:60px;margin:0">
+              <div class="bin-fill-el" id="pub-bin-fill-hero" style="height:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bin-alert-el ok" id="pub-bin-alert-hero" style="margin-top:7px">✓ BIN LEVEL OK</div>
+      </div>
+    </div>
+
+    <div class="main-row">
+      <!-- LEFT -->
+      <div class="left-col">
+        <!-- Graph -->
+        <div class="card">
+          <div class="card-title">
+            <span class="card-title-l">Collection Activity</span>
+            <div style="display:flex;gap:5px;align-items:center">
+              <button class="gbtn active" onclick="setPubGraph('day')" id="pgb-day">TODAY</button>
+              <button class="gbtn" onclick="setPubGraph('week')" id="pgb-week">WEEK</button>
+              <button class="gbtn" onclick="setPubGraph('month')" id="pgb-month">MONTH</button>
+            </div>
+          </div>
+          <canvas id="pub-graph" style="width:100%;height:160px"></canvas>
+        </div>
+
+        <!-- Catch log -->
+        <div class="card">
+          <div class="card-title">
+            <span class="card-title-l">Collection Log</span>
+            <span id="pub-log-cnt" style="font-family:'Share Tech Mono',monospace;color:var(--accent);font-size:10px">0 entries</span>
+          </div>
+          <div class="catch-list" id="pub-catch-list">
+            <div class="empty-hint" id="pub-log-empty">Waiting for detections...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="right-col">
+        <!-- Bin -->
+        <div class="card">
+          <div class="card-title"><span class="card-title-l">Bin Status</span></div>
+          <div class="bin-wrap">
+            <div class="bin-body">
+              <div class="bin-fill-el" id="pub-bin-fill" style="height:0%"></div>
+            </div>
+            <div class="bin-pct-txt" id="pub-bin-pct" style="color:var(--accent2)">—%</div>
+            <div class="bin-lbl">fill level</div>
+            <div class="bin-alert-el ok" id="pub-bin-alert" style="margin-top:8px">✓ BIN OK</div>
+          </div>
+          <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px;letter-spacing:1px">HC-SR04 sensor #2</div>
+        </div>
+
+        <!-- Bin history -->
+        <div class="card">
+          <div class="card-title">
+            <span class="card-title-l">Bin Full History</span>
+            <span id="pub-bh-cnt" style="font-family:'Share Tech Mono',monospace;color:var(--warn);font-size:10px">0×</span>
+          </div>
+          <div class="bh-list" id="pub-bh-list"></div>
+          <div class="empty-hint" id="pub-bh-empty">No full-bin events yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN PAGE ══ -->
+<div id="page-admin">
+  <div class="adm-scroll">
+    <div class="adm-grid">
+
+      <!-- DEVICE CONTROL -->
+      <div class="card">
+        <div class="card-title"><span class="card-title-l">Device Control</span></div>
+
+        <!-- BT CONNECT (shown when bridge is not running) -->
+        <div id="adm-bt-panel" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">HC-05 BRIDGE</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:8px">
+            Run <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;color:var(--accent)">node bridge.js</code> on your laptop to link the HC-05 to this dashboard.
+          </div>
+          <div id="adm-bt-err" style="font-size:9px;color:var(--accent2);letter-spacing:1px;min-height:14px;text-align:center"></div>
+        </div>
+        <button class="power-ring on" id="power-ring" onclick="togglePower()">
+          <span style="font-size:24px">⏻</span>
+          <span class="power-lbl" id="power-lbl">ON</span>
+        </button>
+        <div class="power-status on" id="power-status">● SYSTEM ACTIVE</div>
+        <div style="padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:7px">AUTO SCHEDULE</div>
+          <div class="time-row"><span>Start</span><input type="time" value="06:00" id="sched-start"/></div>
+          <div class="time-row"><span>Stop</span><input type="time" value="18:00" id="sched-stop"/></div>
+        </div>
+      </div>
+
+      <!-- BIN + HISTORY -->
+      <div class="card">
+        <div class="card-title"><span class="card-title-l">Bin Status</span></div>
+        <div class="bin-wrap">
+          <div class="bin-body">
+            <div class="bin-fill-el" id="adm-bin-fill" style="height:0%"></div>
+          </div>
+          <div class="bin-pct-txt" id="adm-bin-pct" style="color:var(--accent2)">—%</div>
+          <div class="bin-lbl">fill level</div>
+          <div class="bin-alert-el ok" id="adm-bin-alert" style="margin-top:8px">✓ BIN OK</div>
+        </div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <div class="card-title" style="margin-bottom:7px">
+            <span class="card-title-l">Bin Full History</span>
+            <span id="adm-bh-cnt" style="font-family:'Share Tech Mono',monospace;color:var(--warn);font-size:10px">0×</span>
+          </div>
+          <div class="bh-list" id="adm-bh-list"></div>
+          <div class="empty-hint" id="adm-bh-empty" style="padding:8px 0">No events yet</div>
+        </div>
+      </div>
+
+      <!-- SYSTEM LOG -->
+      <div class="card adm-log-card">
+        <div class="card-title">
+          <span class="card-title-l">System Log</span>
+          <span id="adm-log-cnt" style="font-family:'Share Tech Mono',monospace;color:var(--accent);font-size:10px">0</span>
+        </div>
+        <div class="syslog-list" id="adm-log-list"></div>
+      </div>
+
+      <!-- SENSOR CONFIG -->
+      <div class="card adm-graph-card">
+        <div class="card-title"><span class="card-title-l">Sensor Config</span></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+          <div>
+            <div class="cfg-label">DETECTION RANGE (cm)</div>
+            <div class="cfg-row"><span style="font-size:10px;color:var(--muted)">Range</span><span class="cfg-val" id="cfg-range">30 cm</span></div>
+            <input type="range" min="5" max="100" value="30" id="sl-range" oninput="document.getElementById('cfg-range').textContent=this.value+' cm'"/>
+            <div class="cfg-hint"><span>5 cm</span><span>100 cm</span></div>
+          </div>
+          <div>
+            <div class="cfg-label">SWEEP SPEED (ms/°)</div>
+            <div class="cfg-row"><span style="font-size:10px;color:var(--muted)">Speed</span><span class="cfg-val" id="cfg-speed">15 ms</span></div>
+            <input type="range" min="5" max="40" value="15" id="sl-speed" oninput="document.getElementById('cfg-speed').textContent=this.value+' ms'"/>
+            <div class="cfg-hint"><span>Fast 5ms</span><span>Slow 40ms</span></div>
+          </div>
+          <div>
+            <div class="cfg-label">SWEEP ANGLE (°)</div>
+            <div class="cfg-row"><span style="font-size:10px;color:var(--muted)">Angle</span><span class="cfg-val" id="cfg-angle">120°</span></div>
+            <input type="range" min="45" max="170" value="120" id="sl-angle" oninput="document.getElementById('cfg-angle').textContent=this.value+'°'"/>
+            <div class="cfg-hint"><span>45°</span><span>170°</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+          <button class="send-btn" style="flex:1" onclick="sendConfig()">⬆ SEND CONFIG TO ARDUINO</button>
+          <div class="send-ok" id="send-ok" style="flex:0 0 auto;margin-top:0">✓ Sent</div>
+        </div>
+      </div>
+
+      <!-- GRAPH ADMIN -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-l">Collection History</span>
+          <div style="display:flex;gap:5px">
+            <button class="gbtn active" onclick="setAdmGraph('day')" id="agb-day">TODAY</button>
+            <button class="gbtn" onclick="setAdmGraph('week')" id="agb-week">WEEK</button>
+            <button class="gbtn" onclick="setAdmGraph('month')" id="agb-month">MONTH</button>
+          </div>
+        </div>
+        <canvas id="adm-graph" style="width:100%;height:140px"></canvas>
+      </div>
+
+      <!-- STATS -->
+      <div class="adm-stats-card">
+        <div class="mini-stat">
+          <div class="ms-val" id="adm-today">0</div>
+          <div class="ms-lbl">COLLECTED TODAY</div>
+        </div>
+        <div class="mini-stat">
+          <div class="ms-val" id="adm-total" style="color:var(--accent)">0</div>
+          <div class="ms-lbl">TOTAL ALL TIME</div>
+        </div>
+        <div class="mini-stat">
+          <div class="ms-val" id="adm-uptime" style="color:#fde68a">00:00</div>
+          <div class="ms-lbl">SESSION UPTIME</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let btConnected = false, demoMode = false;
+let powered = true;
+let catchCount = 0, todayCount = 0;
+let binLevel = 0, prevBinFull = false;
+let binHistory = [], catchLog = [], sysLog = [];
+let startTime = Date.now();
+let pubGMode = 'day', admGMode = 'day';
+let graphData = {day:[], week:[], month:[]};
+let isAdmin = false;
+
+// ── VERCEL CONFIG ─────────────────────────────
+// After deploying to Vercel, paste your project URL here (no trailing slash).
+// Panelists just open this HTML — no login or setup needed on their side.
+const VERCEL_URL = 'https://YOUR-PROJECT.vercel.app';
+// ─────────────────────────────────────────────
+
+// Nordic UART Service UUIDs (BLE UART / HM-10)
+const NUS_SERVICE = '6e400001-b5b4-f393-e0a9-e50e24dcca9e';
+const NUS_TX      = '6e400003-b5b4-f393-e0a9-e50e24dcca9e';
+const NUS_RX      = '6e400002-b5b4-f393-e0a9-e50e24dcca9e';
+
+let lastVersion = -1;
+let pollTimer = null;
+
+// ═══════════════════════════════════════════════
+// VERCEL SYNC — push (admin) + poll (everyone)
+// ═══════════════════════════════════════════════
+async function pushEvent(type, value) {
+  try {
+    await fetch(VERCEL_URL + '/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, value: value ?? null })
+    });
+  } catch(e) {
+    sysLog_add('Vercel push failed: ' + e.message, '⚠️', 'SRV');
+  }
+}
+
+async function pollState() {
+  try {
+    const r = await fetch(VERCEL_URL + '/api/events?v=' + lastVersion, { cache: 'no-store' });
+    if (!r.ok) return;
+    const s = await r.json();
+    if (s.version === lastVersion) return; // no change
+    lastVersion = s.version;
+    setServerPill(true);
+    applyServerState(s);
+  } catch(e) {
+    setServerPill(false);
+  }
+}
+
+function applyServerState(s) {
+  // Admin phone is the source — don't overwrite its own local state
+  if (btConnected) return;
+
+  // Catches
+  if (s.catches !== catchCount) {
+    // Replay any new catches since last known count
+    const diff = s.catches - catchCount;
+    if (diff > 0) {
+      for (let i = 0; i < diff; i++) onCatch(false);
+    } else {
+      // Reset (server restarted or reset)
+      catchCount = s.catches;
+      todayCount = s.todayCount;
+      catchLog = (s.catchLog || []).slice(0, 100);
+      ['pub-today','adm-today'].forEach(id => { const e=document.getElementById(id); if(e) e.textContent=todayCount; });
+      ['pub-total','adm-total'].forEach(id => { const e=document.getElementById(id); if(e) e.textContent=catchCount; });
+      renderCatchLog();
+    }
+  }
+  // Bin level
+  if (s.binLevel !== binLevel) updateBin(s.binLevel, false);
+  // Power status
+  if (s.powered !== powered) setPowered(s.powered, false);
+}
+
+function setServerPill(ok) {
+  const pill = document.getElementById('serial-pill');
+  const dot  = document.getElementById('serial-dot');
+  const txt  = document.getElementById('serial-txt');
+  const live = document.getElementById('live-badge');
+  const panel = document.getElementById('adm-bt-panel');
+  const err   = document.getElementById('adm-bt-err');
+  if (ok) {
+    pill.className = 'serial-pill connected';
+    dot.className  = 'serial-dot pulse';
+    txt.textContent = 'BRIDGE LIVE';
+    live.className = 'live-badge show';
+    if (panel) panel.style.display = 'none';
+    if (err)   err.textContent = '';
+  } else {
+    pill.className = 'serial-pill';
+    dot.className  = 'serial-dot';
+    txt.textContent = 'BRIDGE OFFLINE';
+    live.className = 'live-badge';
+    if (panel && isAdmin) panel.style.display = '';
+    if (err)   err.textContent = '⚠ Run node bridge.js on your laptop';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// BLUETOOTH — admin phone only
+// ═══════════════════════════════════════════════
+async function doConnect() {
+  const btn = document.getElementById('adm-bt-btn');
+  const err = document.getElementById('adm-bt-err');
+  err.textContent = '';
+
+  if (!navigator.bluetooth) {
+    err.textContent = '⚠ Web Bluetooth not supported. Use Chrome on Android or desktop.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  try {
+    btDevice = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [NUS_SERVICE]
+    });
+    btn.textContent = 'Connecting...';
+    const server  = await btDevice.gatt.connect();
+    const service = await server.getPrimaryService(NUS_SERVICE);
+    btTxChar = await service.getCharacteristic(NUS_TX);
+    btRxChar = await service.getCharacteristic(NUS_RX);
+    await btTxChar.startNotifications();
+    btTxChar.addEventListener('characteristicvaluechanged', onBTData);
+    btDevice.addEventListener('gattserverdisconnected', onBTDisconnect);
+
+    btConnected = true;
+    setBtUI(true);
+    sysLog_add('Bluetooth connected: ' + btDevice.name, '🔵', 'BT');
+  } catch(e) {
+    err.textContent = e.name === 'NotFoundError' ? '⚠ No device selected.' : '⚠ ' + e.message;
+    btn.disabled = false;
+    btn.textContent = '🔵 CONNECT TO ARDUINO';
+  }
+}
+
+function onBTDisconnect() {
+  btConnected = false;
+  setBtUI(false);
+  sysLog_add('Bluetooth disconnected', '🔴', 'BT');
+}
+
+let btBuf = '';
+function onBTData(event) {
+  const decoder = new TextDecoder();
+  btBuf += decoder.decode(event.target.value);
+  let lines = btBuf.split('\n');
+  btBuf = lines.pop();
+  for (let l of lines) { l = l.trim(); if (l) handleLine(l); }
+}
+
+function setBtUI(connected) {
+  const pill = document.getElementById('serial-pill');
+  const dot  = document.getElementById('serial-dot');
+  const txt  = document.getElementById('serial-txt');
+  const live = document.getElementById('live-badge');
+  const panel = document.getElementById('adm-bt-panel');
+  const btn   = document.getElementById('adm-bt-btn');
+  const err   = document.getElementById('adm-bt-err');
+
+  if (connected) {
+    pill.className = 'serial-pill connected';
+    dot.className  = 'serial-dot pulse';
+    txt.textContent = 'BT + VERCEL';
+    live.className = 'live-badge show';
+    // Hide connect button, show status
+    if (panel) panel.style.display = 'none';
+  } else {
+    setServerPill(lastVersion >= 0);
+    // Re-show the connect button
+    if (panel) panel.style.display = '';
+    if (btn)  { btn.disabled = false; btn.textContent = '🔵 CONNECT TO ARDUINO'; }
+    if (err)  { err.textContent = ''; }
+  }
+}
+
+function reconnectBT() {
+  // No overlay — just scroll admin to the BT panel
+  if (btConnected) return;
+  const panel = document.getElementById('adm-bt-panel');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════
+// PARSE ARDUINO LINES
+// ═══════════════════════════════════════════════
+function handleLine(line) {
+  if (line.startsWith('BIN:')) {
+    const p = parseInt(line.substring(4));
+    if (!isNaN(p)) updateBin(p, true);
+    return;
+  }
+  if (line.startsWith('CATCH:')) { onCatch(true); return; }
+  if (line === 'STATUS:ON')  { setPowered(true,  false); sysLog_add('Device: system ON',  '🟢', 'DEV'); return; }
+  if (line === 'STATUS:OFF') { setPowered(false, false); sysLog_add('Device: system OFF', '🔴', 'DEV'); return; }
+  if (line === 'READY') { sysLog_add('Arduino ready', '✅', 'DEV'); return; }
+  sysLog_add(line, '📟', 'RAW');
+}
+
+// ═══════════════════════════════════════════════
+// SEND COMMAND TO ARDUINO (via Vercel → bridge.js → HC-05)
+// ═══════════════════════════════════════════════
+async function send(cmd) {
+  try {
+    const res = await fetch(VERCEL_URL + '/api/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      sysLog_add('Command sent: ' + cmd, '📤', 'CMD');
+      return true;
+    }
+  } catch(e) {
+    sysLog_add('Command failed: ' + e.message, '⚠️', 'CMD');
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════
+// POWER
+// ═══════════════════════════════════════════════
+function togglePower() {
+  setPowered(!powered, true);
+}
+
+function setPowered(on, doSend) {
+  powered = on;
+  const ring = document.getElementById('power-ring');
+  const lbl  = document.getElementById('power-lbl');
+  const st   = document.getElementById('power-status');
+  const pill = document.getElementById('pub-sys-pill');
+
+  if (on) {
+    ring.className = 'power-ring on'; lbl.textContent = 'ON';
+    st.className = 'power-status on'; st.textContent = '● SYSTEM ACTIVE';
+    pill.className = 'sys-pill on';
+    pill.innerHTML = '<div class="sys-pill-dot"></div>SYSTEM ACTIVE';
+    sysLog_add('System turned ON', '🟢', 'CTRL');
+  } else {
+    ring.className = 'power-ring off'; lbl.textContent = 'OFF';
+    st.className = 'power-status off'; st.textContent = '○ SYSTEM OFFLINE';
+    pill.className = 'sys-pill off'; pill.textContent = '○ OFFLINE';
+    sysLog_add('System turned OFF', '🔴', 'CTRL');
+  }
+  if (doSend) send(on ? 'ON' : 'OFF');
+}
+
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+async function sendConfig() {
+  const range = document.getElementById('sl-range').value;
+  const speed = document.getElementById('sl-speed').value;
+  const angle = document.getElementById('sl-angle').value;
+
+  const ok1 = await send('RANGE:' + range);
+  const ok2 = await send('SPEED:' + speed);
+  const ok3 = await send('ANGLE:' + angle);
+
+  const el = document.getElementById('send-ok');
+  el.textContent = (ok1||ok2||ok3) ? '✓ Sent' : '✓ Queued (demo)';
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 2500);
+  sysLog_add(`Config: range=${range}cm speed=${speed}ms angle=${angle}°`, '⚙️', 'CFG');
+}
+
+// ═══════════════════════════════════════════════
+// BIN
+// ═══════════════════════════════════════════════
+function updateBin(pct, push = true) {
+  const p = Math.round(Math.min(100, Math.max(0, pct)));
+  binLevel = p;
+
+  let color, cls, msg, grad;
+  if (p >= 90)      { color='var(--danger)'; cls='full'; msg='🚨 BIN FULL'; grad='linear-gradient(to top,#ff2d55,#ff2d55)'; }
+  else if (p >= 60) { color='var(--warn)';   cls='mid';  msg='⚠ GETTING FULL'; grad='linear-gradient(to top,#ff2d55,#ff6b35)'; }
+  else              { color='var(--accent2)'; cls='ok';  msg='✓ BIN OK'; grad='linear-gradient(to top,var(--accent2),var(--accent))'; }
+
+  // All bin elements
+  const fills  = ['pub-bin-fill','pub-bin-fill-hero','adm-bin-fill'];
+  const pcts   = ['pub-bin-pct','pub-bin-hero','adm-bin-pct'];
+  const alerts = ['pub-bin-alert','pub-bin-alert-hero','adm-bin-alert'];
+
+  fills.forEach(id  => { const e=document.getElementById(id); if(e){e.style.height=p+'%'; e.style.background=grad;} });
+  pcts.forEach(id   => { const e=document.getElementById(id); if(e){e.textContent=p+'%'; e.style.color=color;} });
+  alerts.forEach(id => { const e=document.getElementById(id); if(e){e.className='bin-alert-el '+cls; e.textContent=msg;} });
+
+  // Full event
+  if (p >= 90 && !prevBinFull) {
+    const ts = nowStr();
+    binHistory.unshift({ pct: p, time: ts });
+    renderBinHistory();
+    sysLog_add('Bin full at ' + p + '%', '🚨', 'BIN');
+  }
+  prevBinFull = p >= 90;
+  if (push) pushEvent('BIN', p);
+}
+
+function renderBinHistory() {
+  const n = binHistory.length;
+  ['pub-bh-cnt','adm-bh-cnt'].forEach(id => {
+    const e = document.getElementById(id); if(e) e.textContent = n + '×';
+  });
+  ['pub-bh-list','adm-bh-list'].forEach(id => {
+    const el = document.getElementById(id); if(!el) return;
+    el.innerHTML = binHistory.map(b =>
+      `<div class="bh-item"><span>🗑 Bin reached ${b.pct}%</span><span class="bh-pct">${b.pct}%</span><span class="bh-time">${b.time}</span></div>`
+    ).join('');
+  });
+  ['pub-bh-empty','adm-bh-empty'].forEach(id => {
+    const e = document.getElementById(id); if(e) e.style.display = n > 0 ? 'none' : 'block';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CATCHES
+// ═══════════════════════════════════════════════
+function onCatch(push = true) {
+  if (!powered) return;
+  catchCount++; todayCount++;
+  const ts = nowStr();
+  catchLog.unshift({ num: catchCount, time: ts });
+  if (catchLog.length > 100) catchLog.pop();
+
+  // update counters
+  ['pub-today','adm-today'].forEach(id => { const e=document.getElementById(id); if(e) e.textContent=todayCount; });
+  ['pub-total','adm-total'].forEach(id => { const e=document.getElementById(id); if(e) e.textContent=catchCount; });
+
+  renderCatchLog();
+  graphOnCatch();
+  sysLog_add('Catch #' + catchCount, '🎣', 'CATCH');
+  if (push) pushEvent('CATCH', catchCount);
+}
+
+function renderCatchLog() {
+  const list  = document.getElementById('pub-catch-list');
+  const cnt   = document.getElementById('pub-log-cnt');
+  const empty = document.getElementById('pub-log-empty');
+  if (!list) return;
+  if (cnt) cnt.textContent = catchLog.length + ' entries';
+  if (catchLog.length === 0) { if(empty) empty.style.display='block'; return; }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = catchLog.map(c =>
+    `<div class="catch-item">
+       <div class="catch-num">#${c.num}</div>
+       <div class="catch-info">
+         <div class="ct">Collection event</div>
+         <div class="ctm">${c.time}</div>
+       </div>
+       <span class="catch-tag">CATCH</span>
+     </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════
+// SYSTEM LOG
+// ═══════════════════════════════════════════════
+function sysLog_add(msg, icon, tag) {
+  const ts = new Date().toLocaleTimeString('en-PH',{hour12:false});
+  sysLog.unshift({ msg, icon, tag, ts });
+  if (sysLog.length > 200) sysLog.pop();
+  const list = document.getElementById('adm-log-list');
+  const cnt  = document.getElementById('adm-log-cnt');
+  if (!list) return;
+  if (cnt) cnt.textContent = sysLog.length;
+  list.innerHTML = sysLog.map(l =>
+    `<div class="syslog-item">
+       <span class="syslog-icon">${l.icon}</span>
+       <span class="syslog-msg">${l.msg}</span>
+       <span class="syslog-time">${l.ts}</span>
+       <span class="syslog-tag">${l.tag}</span>
+     </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════
+// GRAPH
+// ═══════════════════════════════════════════════
+function initGraphData() {
+  const now = new Date();
+  graphData.day = Array.from({length:12}, (_,i) => {
+    const h = new Date(now); h.setHours(h.getHours()-11+i,0,0,0);
+    return { label: h.getHours()+':00', val: 0 };
+  });
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  graphData.week  = days.map(d => ({label:d, val:0}));
+  graphData.month = Array.from({length:10}, (_,i) => ({label:'Apr '+(i*3+1), val:0}));
+}
+
+function graphOnCatch() {
+  if (graphData.day.length > 0) graphData.day[graphData.day.length-1].val++;
+  const dow = new Date().getDay();
+  if (graphData.week[dow]) graphData.week[dow].val++;
+  redrawGraphs();
+}
+
+function redrawGraphs() {
+  drawGraph('pub-graph', graphData[pubGMode]);
+  drawGraph('adm-graph', graphData[admGMode]);
+}
+
+function setPubGraph(m) {
+  pubGMode = m;
+  ['day','week','month'].forEach(x => document.getElementById('pgb-'+x).classList.toggle('active',x===m));
+  drawGraph('pub-graph', graphData[m]);
+}
+
+function setAdmGraph(m) {
+  admGMode = m;
+  ['day','week','month'].forEach(x => document.getElementById('agb-'+x).classList.toggle('active',x===m));
+  drawGraph('adm-graph', graphData[m]);
+}
+
+function drawGraph(id, data) {
+  const canvas = document.getElementById(id);
+  if (!canvas || !data || data.length === 0) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 400;
+  const H = canvas.offsetHeight || 160;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  ctx.clearRect(0, 0, W, H);
+
+  const max  = Math.max(...data.map(d => d.val), 1);
+  const pad  = {l:36, r:12, t:14, b:28};
+  const gW   = W - pad.l - pad.r;
+  const gH   = H - pad.t - pad.b;
+  const step = gW / (data.length - 1 || 1);
+
+  // grid lines
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + gH*(1 - i/4);
+    ctx.strokeStyle = 'rgba(0,229,255,0.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(74,127,165,0.75)'; ctx.font = '9px Share Tech Mono';
+    ctx.textAlign = 'right'; ctx.fillText(Math.round(max*i/4), pad.l-5, y+3);
+  }
+
+  // area fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+gH);
+  grad.addColorStop(0, 'rgba(0,229,255,0.16)');
+  grad.addColorStop(1, 'rgba(0,229,255,0.01)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t+gH);
+  data.forEach((d,i) => ctx.lineTo(pad.l+i*step, pad.t+gH*(1-d.val/max)));
+  ctx.lineTo(pad.l+(data.length-1)*step, pad.t+gH);
+  ctx.closePath(); ctx.fill();
+
+  // line
+  ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  data.forEach((d,i) => {
+    const x=pad.l+i*step, y=pad.t+gH*(1-d.val/max);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // dots + labels
+  data.forEach((d,i) => {
+    const x=pad.l+i*step, y=pad.t+gH*(1-d.val/max);
+    ctx.fillStyle='rgba(0,229,255,0.15)'; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#00e5ff'; ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(74,127,165,0.85)'; ctx.font='8px Share Tech Mono'; ctx.textAlign='center';
+    ctx.fillText(d.label, x, pad.t+gH+20);
+    if (d.val > 0) {
+      ctx.fillStyle='rgba(0,229,255,0.9)'; ctx.font='bold 8px Share Tech Mono';
+      ctx.fillText(d.val, x, y-7);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// DEMO MODE (simulated data when no device)
+// ═══════════════════════════════════════════════
+let demoInts = [];
+function startDemo() {
+  // start bin at 0, slowly fill
+  updateBin(0);
+  let simBin = 0;
+  demoInts.push(setInterval(() => {
+    if (!btConnected && powered) {
+      simBin += Math.random() * 3;
+      if (simBin > 100) simBin = 5; // reset after full
+      updateBin(simBin, false);
+    }
+  }, 6000));
+  demoInts.push(setInterval(() => {
+    if (!btConnected && powered && Math.random() < 0.35) onCatch(false);
+  }, 3500));
+}
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+function openLogin() {
+  document.getElementById('login-overlay').classList.add('show');
+}
+function closeLogin() {
+  document.getElementById('login-overlay').classList.remove('show');
+  document.getElementById('login-err').textContent = '';
+}
+function doLogin() {
+  const u = document.getElementById('uname').value.trim();
+  const p = document.getElementById('upass').value;
+  if (u === 'admin' && p === 'ecocatch123') {
+    closeLogin();
+    isAdmin = true;
+    document.getElementById('page-public').classList.remove('active');
+    document.getElementById('page-admin').classList.add('active');
+    document.getElementById('admin-btn').style.display = 'none';
+    document.getElementById('logout-btn').style.display = '';
+    document.getElementById('adm-badge').style.display = '';
+    startTime = Date.now();
+    redrawGraphs();
+    sysLog_add('Admin session started', '🔐', 'AUTH');
+  } else {
+    document.getElementById('login-err').textContent = '⚠ Invalid credentials';
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-overlay').classList.contains('show')) doLogin();
+});
+function doLogout() {
+  isAdmin = false;
+  document.getElementById('page-admin').classList.remove('active');
+  document.getElementById('page-public').classList.add('active');
+  document.getElementById('admin-btn').style.display = '';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('adm-badge').style.display = 'none';
+  document.getElementById('uname').value = '';
+  document.getElementById('upass').value = '';
+  redrawGraphs();
+}
+
+// ═══════════════════════════════════════════════
+// CLOCK + UPTIME
+// ═══════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) + ' ' +
+    now.toLocaleTimeString('en-PH',{hour12:false});
+  const secs = Math.floor((Date.now()-startTime)/1000);
+  const h = String(Math.floor(secs/3600)).padStart(2,'0');
+  const m = String(Math.floor((secs%3600)/60)).padStart(2,'0');
+  const ut = document.getElementById('adm-uptime');
+  if (ut) ut.textContent = h+':'+m;
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function nowStr() {
+  const n = new Date();
+  return n.toLocaleTimeString('en-PH',{hour12:false}) + ' · ' +
+    n.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+function init() {
+  initGraphData();
+  updateClock();
+  setInterval(updateClock, 1000);
+  renderBinHistory();
+  renderCatchLog();
+  window.addEventListener('resize', () => { setTimeout(redrawGraphs, 50); });
+  setTimeout(redrawGraphs, 300);
+  // Start Vercel polling immediately for all viewers
+  pollState();
+  pollTimer = setInterval(pollState, 2500);
+}
+init();
+</script>
+</body>
+</html>
